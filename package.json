@@ -1,0 +1,10 @@
+{
+  "name": "pixel-tank-wasteland",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "像素坦克：废土突围 — HTML5 Canvas 像素肉鸽坦克游戏",
+  "scripts": {
+    "start": "node server.mjs"
+  }
+}
