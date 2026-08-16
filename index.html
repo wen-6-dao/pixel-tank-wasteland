@@ -1,0 +1,494 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <link rel="icon" href="data:,">
+  <title>像素坦克：废土突围</title>
+  <style>
+    * { box-sizing: border-box; }
+    html, body { height: 100%; overscroll-behavior: none; }
+    body {
+      margin: 0;
+      touch-action: manipulation;
+      -webkit-user-select: none;
+      user-select: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #0c0f0b;
+      color: #aab79a;
+      font-family: "Courier New", ui-monospace, monospace;
+    }
+    .stage {
+      width: min(96vw, 960px);
+    }
+    canvas {
+      display: block;
+      width: 100%;
+      aspect-ratio: 16 / 9;
+      image-rendering: crisp-edges;
+      image-rendering: pixelated;
+      touch-action: none;
+      border: 2px solid #2c3526;
+      border-radius: 4px;
+      box-shadow: 0 0 0 1px #000, 0 12px 40px rgba(0, 0, 0, 0.6);
+    }
+    /* 横屏：画布尽量占满屏幕；竖屏：画布靠上，触控区在下方 */
+    @media (orientation: landscape) {
+      .stage { width: min(100vw, calc(100vh * 16 / 9)); }
+      .caption { display: none; }
+    }
+    @media (orientation: portrait) {
+      body { justify-content: flex-start; padding-top: env(safe-area-inset-top); }
+      .stage { width: 100vw; }
+      .caption { display: none; }
+    }
+    .caption {
+      margin-top: 12px;
+      text-align: center;
+      font-size: 13px;
+      letter-spacing: 0.08em;
+      color: #6d7a60;
+    }
+    .overlay {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: rgba(6, 8, 5, 0.78);
+      z-index: 10;
+    }
+    .overlay.hidden {
+      display: none;
+    }
+    .overlay h2 {
+      color: #e8c93f;
+      font-size: 26px;
+      margin: 0 0 6px;
+      letter-spacing: 0.15em;
+    }
+    .overlay-sub {
+      color: #9fb08a;
+      margin: 0 0 24px;
+      font-size: 14px;
+    }
+    .cards {
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+      justify-content: center;
+      padding: 0 16px;
+    }
+    .upgrade-card {
+      width: 190px;
+      padding: 18px 14px;
+      background: #161b12;
+      border: 2px solid #2c3526;
+      color: #c9d4b8;
+      cursor: pointer;
+      text-align: center;
+      font-family: inherit;
+      transition: transform 0.12s, border-color 0.12s;
+    }
+    .upgrade-card:hover {
+      transform: translateY(-4px);
+      border-color: #e8c93f;
+    }
+    .upgrade-card .icon {
+      display: block;
+      font-size: 34px;
+      margin-bottom: 10px;
+    }
+    .upgrade-card .name {
+      display: block;
+      font-size: 16px;
+      color: #e8c93f;
+      margin-bottom: 8px;
+    }
+    .upgrade-card .desc {
+      display: block;
+      font-size: 12px;
+      line-height: 1.5;
+      min-height: 54px;
+    }
+    .upgrade-card .stack {
+      display: inline-block;
+      margin-top: 10px;
+      font-size: 11px;
+      color: #7fae4f;
+      border: 1px solid #2c3526;
+      padding: 2px 8px;
+    }
+    .menu-stats {
+      display: flex;
+      gap: 36px;
+      margin-bottom: 18px;
+      color: #9fb08a;
+      font-size: 15px;
+    }
+    .menu-stats b {
+      color: #e8c93f;
+    }
+    .menu-meta {
+      max-height: 300px;
+      overflow-y: auto;
+      margin-bottom: 20px;
+    }
+    .meta-row {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      width: 560px;
+      max-width: 92vw;
+      padding: 8px 12px;
+      margin-bottom: 8px;
+      background: #161b12;
+      border: 1px solid #2c3526;
+      color: #c9d4b8;
+      text-align: left;
+    }
+    .meta-row .meta-info {
+      flex: 1;
+    }
+    .meta-row .meta-name {
+      color: #e8c93f;
+      font-size: 14px;
+    }
+    .meta-row .meta-desc {
+      font-size: 11px;
+      color: #8b9879;
+      margin-top: 2px;
+    }
+    .meta-row .meta-lvl {
+      font-size: 12px;
+      color: #7fae4f;
+      min-width: 56px;
+      text-align: center;
+    }
+    .menu-btn {
+      padding: 10px 26px;
+      margin: 0 8px;
+      background: #161b12;
+      border: 2px solid #2c3526;
+      color: #c9d4b8;
+      font-family: inherit;
+      font-size: 15px;
+      cursor: pointer;
+      transition: transform 0.12s, border-color 0.12s;
+    }
+    .menu-btn:hover {
+      transform: translateY(-2px);
+      border-color: #e8c93f;
+    }
+    .menu-btn.primary {
+      border-color: #7fae4f;
+      color: #e8c93f;
+      font-size: 18px;
+      padding: 12px 44px;
+    }
+    .menu-btn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+      transform: none;
+    }
+    .btn-row {
+      display: flex;
+      gap: 12px;
+      margin-top: 14px;
+    }
+    .gameover-stats {
+      color: #c9d4b8;
+      font-size: 14px;
+      line-height: 1.9;
+      margin-bottom: 10px;
+      text-align: left;
+    }
+    .gameover-stats b {
+      color: #e8c93f;
+    }
+    .upgrade-stats {
+      color: #7fae4f;
+      font-size: 12px;
+      margin: -14px 0 18px;
+    }
+    #qr-panel {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin: 0 0 16px;
+      padding: 10px 14px;
+      background: #161b12;
+      border: 1px solid #2c3526;
+      max-width: 92vw;
+    }
+    #qr-canvas {
+      width: 132px;
+      height: 132px;
+      image-rendering: pixelated;
+      background: #fff;
+      flex: none;
+    }
+    #qr-info {
+      text-align: left;
+      font-size: 12px;
+      color: #8b9879;
+    }
+    #qr-url {
+      display: block;
+      color: #c9d4b8;
+      word-break: break-all;
+      margin: 4px 0 8px;
+      font-size: 11px;
+    }
+    /* 触摸控件：仅触屏设备显示；摇杆/按钮尺寸由 JS 按屏幕动态调整 */
+    #joy-zone {
+      position: fixed;
+      left: 0;
+      bottom: 0;
+      width: 56vw;
+      height: 62vh;
+      z-index: 5;
+      touch-action: none;
+      display: none;
+    }
+    #joy-base {
+      position: fixed;
+      width: 128px;
+      height: 128px;
+      border-radius: 50%;
+      border: 2px solid rgba(127, 174, 79, 0.6);
+      background: rgba(22, 27, 18, 0.45);
+      display: none;
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+    }
+    #joy-knob {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: 50px;
+      height: 50px;
+      margin: -25px 0 0 -25px;
+      border-radius: 50%;
+      background: rgba(232, 201, 63, 0.85);
+      display: none;
+      pointer-events: none;
+    }
+    #fire-btn {
+      position: fixed;
+      right: max(24px, env(safe-area-inset-right));
+      bottom: max(36px, env(safe-area-inset-bottom));
+      width: clamp(88px, 23vw, 116px);
+      height: clamp(88px, 23vw, 116px);
+      border-radius: 50%;
+      border: 3px solid #7fae4f;
+      background: rgba(22, 27, 18, 0.5);
+      color: #e8c93f;
+      font-family: inherit;
+      font-size: clamp(20px, 6vw, 26px);
+      z-index: 5;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      touch-action: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+    #rotate-hint {
+      display: none;
+      position: fixed;
+      top: max(70px, calc(env(safe-area-inset-top) + 56px));
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 12;
+      color: #e8c93f;
+      background: rgba(6, 8, 5, 0.8);
+      border: 1px solid #2c3526;
+      padding: 6px 14px;
+      font-size: 13px;
+      max-width: 92vw;
+      text-align: center;
+      pointer-events: none;
+    }
+    /* 常驻悬浮按钮：背景音乐开关 + 横竖屏切换 */
+    #music-btn,
+    #volume-btn,
+    #rotate-btn {
+      position: fixed;
+      z-index: 12;
+      width: 46px;
+      height: 46px;
+      border-radius: 50%;
+      border: 2px solid #2c3526;
+      background: rgba(6, 8, 5, 0.8);
+      color: #e8c93f;
+      font-family: inherit;
+      font-size: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
+      transition: border-color 0.12s, transform 0.12s;
+    }
+    #music-btn:hover,
+    #volume-btn:hover,
+    #rotate-btn:hover {
+      border-color: #7fae4f;
+      transform: scale(1.06);
+    }
+    #music-btn {
+      right: max(14px, env(safe-area-inset-right));
+      top: max(24px, calc(env(safe-area-inset-top) + 10px));
+    }
+    #volume-btn {
+      right: max(68px, calc(env(safe-area-inset-right) + 54px));
+      top: max(24px, calc(env(safe-area-inset-top) + 10px));
+    }
+    #rotate-btn {
+      right: max(122px, calc(env(safe-area-inset-right) + 108px));
+      top: max(24px, calc(env(safe-area-inset-top) + 10px));
+      display: none;
+    }
+    /* 音量调节面板 */
+    #music-panel {
+      position: fixed;
+      top: max(78px, calc(env(safe-area-inset-top) + 64px));
+      right: max(14px, env(safe-area-inset-right));
+      width: 240px;
+      z-index: 20;
+      background: rgba(10, 13, 9, 0.96);
+      border: 1px solid #2c3526;
+      border-radius: 6px;
+      padding: 12px 14px;
+      color: #c9d4b8;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.55);
+    }
+    #music-panel.hidden { display: none; }
+    .mp-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+    .mp-row:last-child { margin-bottom: 0; }
+    .mp-label {
+      font-size: 12px;
+      color: #9fb08a;
+      min-width: 48px;
+      flex: none;
+    }
+    .mp-btn {
+      background: #161b12;
+      border: 1px solid #2c3526;
+      color: #e8c93f;
+      font-family: inherit;
+      font-size: 12px;
+      padding: 6px 12px;
+      cursor: pointer;
+    }
+    .mp-btn:hover { border-color: #7fae4f; }
+    #mp-volume {
+      flex: 1;
+      accent-color: #7fae4f;
+      height: 26px;
+      min-width: 0;
+    }
+    #mp-value {
+      font-size: 12px;
+      color: #e8c93f;
+      min-width: 38px;
+      text-align: right;
+      flex: none;
+    }
+    @media (pointer: coarse) {
+      #joy-zone { display: block; width: 60vw; height: 70vh; }
+      #fire-btn { display: flex; }
+      #volume-btn { display: flex; }
+      #rotate-btn { display: flex; }
+      .menu-btn { padding: 14px 30px; font-size: 16px; }
+      .menu-btn.primary { padding: 16px 48px; font-size: 20px; }
+      .upgrade-card { width: min(280px, 84vw); padding: 24px 18px; }
+      .upgrade-card .desc { min-height: 0; font-size: 13px; }
+      .overlay { overflow-y: auto; padding: 24px 0; }
+      .meta-row { padding: 12px 14px; }
+      .menu-meta { max-height: 42vh; }
+    }
+    @media (pointer: coarse) and (orientation: portrait) {
+      #rotate-hint { display: block; }
+      #joy-zone { width: 64vw; height: 44vh; bottom: env(safe-area-inset-bottom); }
+      #fire-btn { bottom: max(24px, env(safe-area-inset-bottom)); }
+    }
+    @media (pointer: coarse) and (orientation: landscape) {
+      #joy-zone { height: 70vh; }
+    }
+  </style>
+</head>
+<body>
+  <main class="stage">
+    <canvas id="game" width="640" height="360"></canvas>
+    <p class="caption">像素坦克：废土突围 · 开始菜单 / 局外成长 / 最高分（M 音效 · B 音乐 · ◐ 音量）</p>
+  </main>
+
+  <div id="joy-zone">
+    <div id="joy-base"><div id="joy-knob"></div></div>
+  </div>
+  <button id="fire-btn">开火</button>
+  <button id="music-btn" aria-pressed="true">♪</button>
+  <button id="volume-btn" title="调节背景音乐音量">◐</button>
+  <button id="rotate-btn" title="全屏横屏游玩">⇄</button>
+  <div id="music-panel" class="hidden">
+    <div class="mp-row">
+      <span class="mp-label">音乐</span>
+      <button id="mp-toggle" class="mp-btn" aria-pressed="true">♪ 开</button>
+    </div>
+    <div class="mp-row">
+      <span class="mp-label">音量</span>
+      <input id="mp-volume" type="range" min="0" max="100" step="1" value="55" aria-label="背景音乐音量">
+      <span id="mp-value">55%</span>
+    </div>
+  </div>
+  <div id="rotate-hint">建议横屏体验：点右上角 ⇄ 全屏横屏；或旋转手机（竖屏亦可游玩）</div>
+
+  <div id="menu-overlay" class="overlay">
+    <h2>像 素 坦 克 · 废 土 突 围</h2>
+    <p class="overlay-sub">废土突围 · 每 5 波 Boss · 三选一升级</p>
+    <div class="menu-stats">
+      <span>最高分 <b id="menu-best">0</b></span>
+      <span>金币 <b id="menu-coins">0</b></span>
+    </div>
+    <div id="qr-panel">
+      <canvas id="qr-canvas" width="132" height="132"></canvas>
+      <div id="qr-info">
+        <b>手机扫码游玩</b>
+        <span id="qr-url"></span>
+        <button id="qr-copy" class="menu-btn">复制链接</button>
+      </div>
+    </div>
+    <div id="menu-meta" class="menu-meta"></div>
+    <button id="start-btn" class="menu-btn primary">开 始 游 戏</button>
+    <p class="overlay-sub" style="margin-top: 16px;">WASD 移动 · 鼠标瞄准 · Space/左键 射击 · M 音效 · B 音乐</p>
+  </div>
+
+  <div id="upgrade-overlay" class="overlay hidden">
+    <h2 id="upgrade-title">第 1 波完成！</h2>
+    <p class="overlay-sub">选择一项升级（可叠加）</p>
+    <p id="upgrade-stats" class="upgrade-stats"></p>
+    <div id="upgrade-cards" class="cards"></div>
+  </div>
+
+  <div id="gameover-overlay" class="overlay hidden">
+    <h2>游戏结束</h2>
+    <div id="gameover-stats" class="gameover-stats"></div>
+    <div class="btn-row">
+      <button id="restart-btn" class="menu-btn primary">再来一局（R）</button>
+      <button id="menu-btn" class="menu-btn">返回菜单</button>
+    </div>
+  </div>
+
+  <script type="module" src="./src/main.js"></script>
+</body>
+</html>
