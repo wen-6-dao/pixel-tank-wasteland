@@ -1,0 +1,25 @@
+《像素坦克：废土突围》提交说明
+
+一、内容清单
+1. 完整项目源码
+   - src/：游戏逻辑源码（entities / world / effects / render / audio 等模块）
+   - scripts/build-offline.mjs：源码构建脚本（把 ES Modules 打包成单文件离线版）
+   - offline/index.html：离线单文件可运行版（当前最新版本）
+   - index.html：根目录部署入口（与 offline 同步的最新版本）
+   - package.json / server.mjs / netlify.toml：工程与部署配置
+2. 可运行文件
+   - 双击 offline/index.html 即可在浏览器直接游玩（单文件、离线、手机/PC 通用）
+   - 或执行 npm start（node server.mjs），浏览器打开 http://localhost:5173
+3. 在线部署
+   - 已上线 GitHub Pages，扫码或点击即可直接游玩：
+   - https://wen-6-dao.github.io/pixel-tank-wasteland/
+4. 演示视频
+   - 演示视频.mp4：游戏实机演示
+
+二、主要功能
+- 废土之城地图：沙尘天气、风沙/烟雾/灰烬粒子、可破坏废墟
+- 四档坦克：废土级/朋克级（默认免费）、主战级（1600 金币解锁）、
+  领主级（81 金币 + 累计清 81 波解锁）
+- 领主双形态（残血装甲形态）、激光能量炮
+- 肉鸽三选一升级、每 5 波 Boss、局外永久成长（localStorage 存档）
+- 手机端：自动全屏横屏、横竖屏/强制旋转三套触控布局、常驻摇杆
